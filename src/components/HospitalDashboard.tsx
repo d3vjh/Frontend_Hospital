@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Heart, 
   Users, 
@@ -23,20 +24,34 @@ import {
   User,
   Filter,
   Download,
-  Upload
+  Upload,
+  Lock
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import ChangePasswordModal from './ChangePasswordModal';
 
-const HospitalDashboard = () => {
-  const [currentUser] = useState({
-    id: 1,
-    name: 'Dr. Carlos Rodríguez',
-    role: 'MEDICO_ESPECIALISTA',
-    department: 'Cardiología',
-    avatar: 'https://ui-avatars.com/api/?name=Carlos+Rodriguez&background=3b82f6&color=fff'
-  });
+const HospitalDashboard: React.FC = () => {
+  const { user, logout, updatePassword } = useAuth();
+  const router = useRouter();
   
   const [activeSection, setActiveSection] = useState('dashboard');
   const [notifications] = useState(3);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
+  // Estados para los campos editables del perfil
+  const [profileData, setProfileData] = useState({
+    email: user?.email || "usuario@hospital.com",
+    phone: user?.phone || "+57-300-1234567"
+  });
+
+  // Datos del usuario actual basados en la autenticación
+  const currentUser = {
+    id: user?.id || 1,
+    name: user?.name || 'Dr. Carlos Rodríguez',
+    role: user?.role || 'MEDICO_ESPECIALISTA',
+    department: user?.department || 'Cardiología',
+    avatar: user?.avatar || 'https://ui-avatars.com/api/?name=Carlos+Rodriguez&background=3b82f6&color=fff'
+  };
 
   // Datos de ejemplo basados en tu DML
   const dashboardData = {
@@ -153,6 +168,59 @@ const HospitalDashboard = () => {
     }
   ];
 
+  const empleados = [
+    { 
+      id: 1, 
+      nombre: 'Dr. Carlos Rodríguez', 
+      cedula: '12345678',
+      departamento: 'Cardiología', 
+      rol: 'Médico Especialista',
+      estado: 'ACTIVO',
+      telefono: '+57-300-1234567',
+      email: 'carlos.rodriguez@hospital.com'
+    },
+    { 
+      id: 2, 
+      nombre: 'Ana Martínez', 
+      cedula: '23456789',
+      departamento: 'Cardiología', 
+      rol: 'Administrativo',
+      estado: 'ACTIVO',
+      telefono: '+57-300-2345678',
+      email: 'ana.martinez@hospital.com'
+    },
+    { 
+      id: 3, 
+      nombre: 'Dr. Roberto Silva', 
+      cedula: '78901234',
+      departamento: 'Urgencias', 
+      rol: 'Médico General',
+      estado: 'ACTIVO',
+      telefono: '+57-300-7890123',
+      email: 'roberto.silva@hospital.com'
+    },
+    { 
+      id: 4, 
+      nombre: 'Carmen Ruiz', 
+      cedula: '89012345',
+      departamento: 'Urgencias', 
+      rol: 'Administrativo',
+      estado: 'ACTIVO',
+      telefono: '+57-300-8901234',
+      email: 'carmen.ruiz@hospital.com'
+    },
+    { 
+      id: 5, 
+      nombre: 'Sandra Pérez', 
+      cedula: '23456780',
+      departamento: 'Farmacia', 
+      rol: 'Farmacéutico',
+      estado: 'ACTIVO',
+      telefono: '+57-300-2345679',
+      email: 'sandra.perez@hospital.com'
+    }
+  ];
+
   // Función para determinar permisos según rol
   const getPermissions = (role: string) => {
     const permissions: { [key: string]: string[] } = {
@@ -179,6 +247,22 @@ const HospitalDashboard = () => {
     };
     
     console.log('Enviando al backend:', JSON.stringify(payload, null, 2));
+    
+    // Manejar acciones específicas
+    if (action === 'logout') {
+      logout();
+      router.push('/login'); // Redirigir al login después del logout
+    } else if (action === 'change_password') {
+      setIsChangePasswordOpen(true);
+    }
+  };
+
+  // Función para actualizar datos del perfil
+  const handleProfileChange = (field: string, value: string) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const Sidebar = () => (
@@ -240,6 +324,15 @@ const HospitalDashboard = () => {
             label="Medicamentos" 
             active={activeSection === 'medicamentos'}
             onClick={() => setActiveSection('medicamentos')}
+          />
+        )}
+
+        {hasPermission('empleados') && (
+          <MenuItem 
+            icon={Stethoscope} 
+            label="Empleados" 
+            active={activeSection === 'empleados'}
+            onClick={() => setActiveSection('empleados')}
           />
         )}
 
@@ -543,24 +636,28 @@ const HospitalDashboard = () => {
                       <button 
                         onClick={() => sendToBackend('view_cita', { citaId: cita.id })}
                         className="text-blue-600 hover:text-blue-900"
+                        title="Ver detalles"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => sendToBackend('edit_cita', { citaId: cita.id })}
                         className="text-green-600 hover:text-green-900"
+                        title="Editar cita"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => sendToBackend('add_prescription', { citaId: cita.id })}
                         className="text-purple-600 hover:text-purple-900"
+                        title="Agregar prescripción"
                       >
                         <Pill className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => sendToBackend('add_file', { citaId: cita.id })}
                         className="text-orange-600 hover:text-orange-900"
+                        title="Subir archivo"
                       >
                         <Upload className="w-4 h-4" />
                       </button>
@@ -615,343 +712,502 @@ const HospitalDashboard = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{paciente.cedula}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{paciente.tipoSangre}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{paciente.ultimaCita}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {paciente.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => sendToBackend('view_patient_history', { patientId: paciente.id })}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('edit_patient', { patientId: paciente.id })}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('schedule_appointment', { patientId: paciente.id })}
-                        className="text-purple-600 hover:text-purple-900"
-                      >
-                        <Calendar className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+                 <td className="px-6 py-4 text-sm text-gray-900">{paciente.tipoSangre}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{paciente.ultimaCita}</td>
+                 <td className="px-6 py-4">
+                   <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                     {paciente.estado}
+                   </span>
+                 </td>
+                 <td className="px-6 py-4">
+                   <div className="flex items-center space-x-2">
+                     <button 
+                       onClick={() => sendToBackend('view_patient_history', { patientId: paciente.id })}
+                       className="text-blue-600 hover:text-blue-900"
+                       title="Ver historia clínica"
+                     >
+                       <FileText className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('edit_patient', { patientId: paciente.id })}
+                       className="text-green-600 hover:text-green-900"
+                       title="Editar paciente"
+                     >
+                       <Edit className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('schedule_appointment', { patientId: paciente.id })}
+                       className="text-purple-600 hover:text-purple-900"
+                       title="Programar cita"
+                     >
+                       <Calendar className="w-4 h-4" />
+                     </button>
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+     </div>
+   </div>
+ );
 
-  const MedicamentosView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Gestión de Medicamentos</h3>
-        <div className="flex space-x-2">
-          <button 
-            onClick={() => sendToBackend('export_inventory', { type: 'excel' })}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar</span>
-          </button>
-          <button 
-            onClick={() => sendToBackend('create_medication', { type: 'new_medication' })}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Medicamento</span>
-          </button>
-        </div>
-      </div>
- <div className="bg-white rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Medicamento</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Principio Activo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Laboratorio</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vencimiento</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {medicamentos.map(medicamento => (
-                <tr key={medicamento.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <Pill className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="font-medium text-gray-900">{medicamento.nombre}</p>
-                        <p className="text-sm text-gray-500">{medicamento.concentracion}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{medicamento.principio}</td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className={`text-sm font-medium ${
-                        medicamento.stock <= medicamento.stockMinimo ? 'text-red-600' : 'text-gray-900'
-                      }`}>
-                        {medicamento.stock}
-                      </p>
-                      <p className="text-xs text-gray-500">Mín: {medicamento.stockMinimo}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">${medicamento.precio.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{medicamento.laboratorio}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{medicamento.vencimiento}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      medicamento.estado === 'DISPONIBLE' ? 'bg-green-100 text-green-800' :
-                      medicamento.estado === 'AGOTADO' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {medicamento.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => sendToBackend('view_medication', { medicationId: medicamento.id })}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('edit_medication', { medicationId: medicamento.id })}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('update_stock', { medicationId: medicamento.id })}
-                        className="text-purple-600 hover:text-purple-900"
-                      >
-                        <Package className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+ const MedicamentosView = () => (
+   <div className="space-y-6">
+     <div className="flex justify-between items-center">
+       <h3 className="text-lg font-semibold">Gestión de Medicamentos</h3>
+       <div className="flex space-x-2">
+         <button 
+           onClick={() => sendToBackend('export_inventory', { type: 'excel' })}
+           className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+         >
+           <Download className="w-4 h-4" />
+           <span>Exportar</span>
+         </button>
+         <button 
+           onClick={() => sendToBackend('create_medication', { type: 'new_medication' })}
+           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+         >
+           <Plus className="w-4 h-4" />
+           <span>Nuevo Medicamento</span>
+         </button>
+       </div>
+     </div>
 
-  const EquipamientoView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Gestión de Equipamiento</h3>
-        <button 
-          onClick={() => sendToBackend('create_equipment', { type: 'new_equipment' })}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nuevo Equipo</span>
-        </button>
-      </div>
+     <div className="bg-white rounded-lg shadow-sm border">
+       <div className="overflow-x-auto">
+         <table className="w-full">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Medicamento</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Principio Activo</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Laboratorio</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vencimiento</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-gray-200">
+             {medicamentos.map(medicamento => (
+               <tr key={medicamento.id} className="hover:bg-gray-50">
+                 <td className="px-6 py-4">
+                   <div className="flex items-center">
+                     <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                       <Pill className="w-5 h-5 text-green-600" />
+                     </div>
+                     <div className="ml-4">
+                       <p className="font-medium text-gray-900">{medicamento.nombre}</p>
+                       <p className="text-sm text-gray-500">{medicamento.concentracion}</p>
+                     </div>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{medicamento.principio}</td>
+                 <td className="px-6 py-4">
+                   <div>
+                     <p className={`text-sm font-medium ${
+                       medicamento.stock <= medicamento.stockMinimo ? 'text-red-600' : 'text-gray-900'
+                     }`}>
+                       {medicamento.stock}
+                     </p>
+                     <p className="text-xs text-gray-500">Mín: {medicamento.stockMinimo}</p>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-sm text-gray-900">${medicamento.precio.toFixed(2)}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{medicamento.laboratorio}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{medicamento.vencimiento}</td>
+                 <td className="px-6 py-4">
+                   <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                     medicamento.estado === 'DISPONIBLE' ? 'bg-green-100 text-green-800' :
+                     medicamento.estado === 'AGOTADO' ? 'bg-red-100 text-red-800' :
+                     'bg-yellow-100 text-yellow-800'
+                   }`}>
+                     {medicamento.estado}
+                   </span>
+                 </td>
+                 <td className="px-6 py-4">
+                   <div className="flex items-center space-x-2">
+                     <button 
+                       onClick={() => sendToBackend('view_medication', { medicationId: medicamento.id })}
+                       className="text-blue-600 hover:text-blue-900"
+                       title="Ver detalles"
+                     >
+                       <Eye className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('edit_medication', { medicationId: medicamento.id })}
+                       className="text-green-600 hover:text-green-900"
+                       title="Editar medicamento"
+                     >
+                       <Edit className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('update_stock', { medicationId: medicamento.id })}
+                       className="text-purple-600 hover:text-purple-900"
+                       title="Actualizar stock"
+                     >
+                       <Package className="w-4 h-4" />
+                     </button>
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+     </div>
+   </div>
+ );
 
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modelo/Serie</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Próxima Calibración</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {equipamiento.map(equipo => (
-                <tr key={equipo.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Monitor className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="font-medium text-gray-900">{equipo.nombre}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm font-medium">{equipo.modelo}</p>
-                      <p className="text-sm text-gray-500">Serie: {equipo.serie}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{equipo.departamento}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      equipo.estado === 'OPERATIVO' ? 'bg-green-100 text-green-800' :
-                      equipo.estado === 'MANTENIMIENTO' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {equipo.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{equipo.proximaCalibacion}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{equipo.proveedor}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => sendToBackend('view_equipment', { equipmentId: equipo.id })}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('edit_equipment', { equipmentId: equipo.id })}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => sendToBackend('schedule_maintenance', { equipmentId: equipo.id })}
-                        className="text-orange-600 hover:text-orange-900"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+ const EquipamientoView = () => (
+   <div className="space-y-6">
+     <div className="flex justify-between items-center">
+       <h3 className="text-lg font-semibold">Gestión de Equipamiento</h3>
+       <button 
+         onClick={() => sendToBackend('create_equipment', { type: 'new_equipment' })}
+         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+       >
+         <Plus className="w-4 h-4" />
+         <span>Nuevo Equipo</span>
+       </button>
+     </div>
 
-  const PerfilView = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-6">Mi Perfil</h3>
-        
-        <div className="flex items-center space-x-6 mb-6">
-          <img 
-            src={currentUser.avatar} 
-            alt={currentUser.name}
-            className="w-24 h-24 rounded-full"
-          />
-          <div>
-            <h4 className="text-xl font-semibold">{currentUser.name}</h4>
-            <p className="text-gray-600">{currentUser.department}</p>
-            <p className="text-sm text-gray-500">Rol: {currentUser.role}</p>
-          </div>
-        </div>
+     <div className="bg-white rounded-lg shadow-sm border">
+       <div className="overflow-x-auto">
+         <table className="w-full">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipo</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modelo/Serie</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Próxima Calibración</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-gray-200">
+             {equipamiento.map(equipo => (
+               <tr key={equipo.id} className="hover:bg-gray-50">
+                 <td className="px-6 py-4">
+                   <div className="flex items-center">
+                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                       <Monitor className="w-5 h-5 text-blue-600" />
+                     </div>
+                     <div className="ml-4">
+                       <p className="font-medium text-gray-900">{equipo.nombre}</p>
+                     </div>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4">
+                   <div>
+                     <p className="text-sm font-medium">{equipo.modelo}</p>
+                     <p className="text-sm text-gray-500">Serie: {equipo.serie}</p>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{equipo.departamento}</td>
+                 <td className="px-6 py-4">
+                   <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                     equipo.estado === 'OPERATIVO' ? 'bg-green-100 text-green-800' :
+                     equipo.estado === 'MANTENIMIENTO' ? 'bg-yellow-100 text-yellow-800' :
+                     'bg-red-100 text-red-800'
+                   }`}>
+                     {equipo.estado}
+                   </span>
+                 </td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{equipo.proximaCalibacion}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{equipo.proveedor}</td>
+                 <td className="px-6 py-4">
+                   <div className="flex items-center space-x-2">
+                     <button 
+                       onClick={() => sendToBackend('view_equipment', { equipmentId: equipo.id })}
+                       className="text-blue-600 hover:text-blue-900"
+                       title="Ver detalles"
+                     >
+                       <Eye className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('edit_equipment', { equipmentId: equipo.id })}
+                       className="text-green-600 hover:text-green-900"
+                       title="Editar equipo"
+                     >
+                       <Edit className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('schedule_maintenance', { equipmentId: equipo.id })}
+                       className="text-orange-600 hover:text-orange-900"
+                       title="Programar mantenimiento"
+                     >
+                       <Settings className="w-4 h-4" />
+                     </button>
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+     </div>
+   </div>
+ );
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nombre completo</label>
-            <input 
-              type="text" 
-              value={currentUser.name}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              readOnly
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Departamento</label>
-            <input 
-              type="text" 
-              value={currentUser.department}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              readOnly
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input 
-              type="email" 
-              value="carlos.rodriguez@hospital.com"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
-            <input 
-              type="tel" 
-              value="+57-300-1234567"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
+ const EmpleadosView = () => (
+   <div className="space-y-6">
+     <div className="flex justify-between items-center">
+       <h3 className="text-lg font-semibold">Gestión de Empleados</h3>
+       <button 
+         onClick={() => sendToBackend('create_employee', { type: 'new_employee' })}
+         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+       >
+         <UserPlus className="w-4 h-4" />
+         <span>Nuevo Empleado</span>
+       </button>
+     </div>
 
-        <div className="mt-6 flex space-x-4">
-          <button 
-            onClick={() => sendToBackend('update_profile', { userId: currentUser.id })}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Guardar Cambios
-          </button>
-          <button 
-            onClick={() => sendToBackend('change_password', { userId: currentUser.id })}
-            className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-          >
-            Cambiar Contraseña
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+     <div className="bg-white rounded-lg shadow-sm border">
+       <div className="overflow-x-auto">
+         <table className="w-full">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empleado</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cédula</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacto</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-gray-200">
+             {empleados.map(empleado => (
+               <tr key={empleado.id} className="hover:bg-gray-50">
+                 <td className="px-6 py-4">
+                   <div className="flex items-center">
+                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                       <Stethoscope className="w-5 h-5 text-blue-600" />
+                     </div>
+                     <div className="ml-4">
+                       <p className="font-medium text-gray-900">{empleado.nombre}</p>
+                     </div>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{empleado.cedula}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{empleado.departamento}</td>
+                 <td className="px-6 py-4 text-sm text-gray-900">{empleado.rol}</td>
+                 <td className="px-6 py-4">
+                   <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                     {empleado.estado}
+                   </span>
+                 </td>
+                 <td className="px-6 py-4">
+                   <div>
+                     <p className="text-sm text-gray-900">{empleado.telefono}</p>
+                     <p className="text-sm text-gray-500">{empleado.email}</p>
+                   </div>
+                 </td>
+                 <td className="px-6 py-4">
+                   <div className="flex items-center space-x-2">
+                     <button 
+                       onClick={() => sendToBackend('view_employee', { employeeId: empleado.id })}
+                       className="text-blue-600 hover:text-blue-900"
+                       title="Ver detalles"
+                     >
+                       <Eye className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('edit_employee', { employeeId: empleado.id })}
+                       className="text-green-600 hover:text-green-900"
+                       title="Editar empleado"
+                     >
+                       <Edit className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => sendToBackend('manage_permissions', { employeeId: empleado.id })}
+                       className="text-purple-600 hover:text-purple-900"
+                       title="Gestionar permisos"
+                     >
+                       <Settings className="w-4 h-4" />
+                     </button>
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+     </div>
+   </div>
+ );
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'dashboard':
-        return <DashboardView />;
-      case 'citas':
-        return <CitasView />;
-      case 'pacientes':
-        return hasPermission('pacientes') ? <PacientesView /> : <div>Sin permisos</div>;
-      case 'equipamiento':
-        return hasPermission('equipamiento') ? <EquipamientoView /> : <div>Sin permisos</div>;
-      case 'medicamentos':
-        return hasPermission('medicamentos') ? <MedicamentosView /> : <div>Sin permisos</div>;
-      case 'perfil':
-        return <PerfilView />;
-      default:
-        return <DashboardView />;
-    }
-  };
+ const PerfilView = () => (
+   <div className="space-y-6">
+     <div className="bg-white rounded-lg shadow-sm border p-6">
+       <h3 className="text-lg font-semibold mb-6">Mi Perfil</h3>
+       
+       <div className="flex items-center space-x-6 mb-6">
+         <img 
+           src={currentUser.avatar} 
+           alt={currentUser.name}
+           className="w-24 h-24 rounded-full"
+         />
+         <div>
+           <h4 className="text-xl font-semibold">{currentUser.name}</h4>
+           <p className="text-gray-600">{currentUser.department}</p>
+           <p className="text-sm text-gray-500">Rol: {currentUser.role}</p>
+         </div>
+       </div>
 
-  return (
-    <div className="bg-gray-50 min-h-screen">
-      <Sidebar />
-      <div className="ml-64">
-        <TopBar />
-        <main className="p-6">
-          {renderContent()}
-        </main>
-      </div>
-    </div>
-  );
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div>
+           <label className="block text-sm font-medium text-gray-700 mb-2">Nombre completo</label>
+           <input 
+             type="text" 
+             value={currentUser.name}
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50"
+             readOnly
+           />
+         </div>
+         
+         <div>
+           <label className="block text-sm font-medium text-gray-700 mb-2">Departamento</label>
+           <input 
+             type="text" 
+             value={currentUser.department}
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50"
+             readOnly
+           />
+         </div>
+         
+         <div>
+           <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+           <input 
+             type="email" 
+             value={profileData.email}
+             onChange={(e) => handleProfileChange('email', e.target.value)}
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+           />
+         </div>
+         
+         <div>
+           <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+           <input 
+             type="tel" 
+             value={profileData.phone}
+             onChange={(e) => handleProfileChange('phone', e.target.value)}
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+           />
+         </div>
+       </div>
+
+       <div className="mt-6 pt-6 border-t">
+         <h4 className="text-lg font-semibold mb-4">Seguridad</h4>
+         <div className="bg-gray-50 p-4 rounded-lg">
+           <div className="flex items-center justify-between">
+             <div>
+               <h5 className="font-medium text-gray-900">Contraseña</h5>
+               <p className="text-sm text-gray-600">Última actualización: hace 30 días</p>
+             </div>
+             <button 
+               onClick={() => sendToBackend('change_password', { userId: currentUser.id })}
+               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+             >
+               <Lock className="w-4 h-4" />
+               <span>Cambiar Contraseña</span>
+             </button>
+           </div>
+         </div>
+       </div>
+
+       <div className="mt-6 flex space-x-4">
+         <button 
+           onClick={() => sendToBackend('update_profile', { 
+             userId: currentUser.id, 
+             profileData: profileData 
+           })}
+           className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+         >
+           Guardar Cambios
+         </button>
+         <button 
+           onClick={() => sendToBackend('logout', { userId: currentUser.id })}
+           className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 flex items-center space-x-2"
+         >
+           <LogOut className="w-4 h-4" />
+           <span>Cerrar Sesión</span>
+         </button>
+       </div>
+     </div>
+
+     {/* Citas del paciente (solo si es paciente) */}
+     {currentUser.role === 'PACIENTE' && (
+       <div className="bg-white rounded-lg shadow-sm border p-6">
+         <h3 className="text-lg font-semibold mb-4">Mis Citas</h3>
+         <div className="space-y-3">
+           {citas.filter(cita => cita.paciente === currentUser.name).map(cita => (
+             <div key={cita.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+               <div>
+                 <p className="font-medium">{cita.tipo}</p>
+                 <p className="text-sm text-gray-600">{cita.motivo}</p>
+                 <p className="text-sm text-gray-500">Dr. {cita.medico}</p>
+               </div>
+               <div className="text-right">
+                 <p className="text-sm font-medium">{cita.fecha} - {cita.hora}</p>
+                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                   cita.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                 }`}>
+                   {cita.estado}
+                 </span>
+               </div>
+             </div>
+           ))}
+         </div>
+       </div>
+     )}
+   </div>
+ );
+
+ const renderContent = () => {
+   switch (activeSection) {
+     case 'dashboard':
+       return <DashboardView />;
+     case 'citas':
+       return <CitasView />;
+     case 'pacientes':
+       return hasPermission('pacientes') ? <PacientesView /> : <div className="p-6 text-center text-gray-500">Sin permisos para acceder a esta sección</div>;
+     case 'equipamiento':
+       return hasPermission('equipamiento') ? <EquipamientoView /> : <div className="p-6 text-center text-gray-500">Sin permisos para acceder a esta sección</div>;
+     case 'medicamentos':
+       return hasPermission('medicamentos') ? <MedicamentosView /> : <div className="p-6 text-center text-gray-500">Sin permisos para acceder a esta sección</div>;
+     case 'empleados':
+       return hasPermission('empleados') ? <EmpleadosView /> : <div className="p-6 text-center text-gray-500">Sin permisos para acceder a esta sección</div>;
+     case 'perfil':
+       return <PerfilView />;
+     default:
+       return <DashboardView />;
+   }
+ };
+
+ return (
+   <div className="bg-gray-50 min-h-screen">
+     <Sidebar />
+     <div className="ml-64">
+       <TopBar />
+       <main className="p-6">
+         {renderContent()}
+       </main>
+     </div>
+     
+     {/* Modal de cambio de contraseña */}
+     <ChangePasswordModal
+       isOpen={isChangePasswordOpen}
+       onClose={() => setIsChangePasswordOpen(false)}
+       onSubmit={updatePassword}
+       userName={currentUser.name}
+     />
+   </div>
+ );
 };
 
 export default HospitalDashboard;
